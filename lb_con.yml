@@ -1,0 +1,77 @@
+- hosts: web_servers
+  vars:
+          - dvd_direc: "/dvd"
+  tasks:
+          - name: "Creating a file"
+            file:
+                  state: directory
+                  path: "{{ dvd_direc }}"
+
+          - mount:
+                  src: "/dev/cdrom"
+                  path: "{{ dvd_direc }}"
+                  state: mounted
+                  fstype: "iso9660"
+
+          - yum_repository:
+                  baseurl: "{{ dvd_direc }}/AppStream"
+                  name: "mydvd1"
+                  description: "my yum dvd1 for installing packages"
+                  gpgcheck: no
+
+          - yum_repository:
+                  baseurl: "{{ dvd_direc }}/BaseOS"
+                  name: "mydvd"
+                  description: "my yum dvd2"
+                  gpgcheck: no
+
+          - name: "Installing httpd"
+            package:
+                  name: "httpd"
+                  state: present
+          
+          - copy:
+                 dest: "/var/www/html/index.html"
+                 content: "This is my new website"
+
+          - firewalld:
+                  port: 80/tcp
+                  state: enabled
+                  permanent: yes
+                  immediate: yes
+  handlers:
+          - service:
+                  name: "httpd"
+                  state: restarted
+                  enabled: yes
+
+- hosts: lb
+  tasks:
+          - name: "Installing haproxy"
+            package:
+                    name: "haproxy"
+                    state: present
+
+          - name: "configure haproxy"
+            template:
+                    dest: "/etc/haproxy/haproxy.cfg"
+                    src: "haproxy.cfg.j2"
+
+          - name: "Starting haproxy service"
+            service:
+                    name: "haproxy"
+                    state: started
+
+          - firewalld:
+                  port: 8080/tcp
+                  state: enabled
+                  permanent: yes
+                  immediate: yes
+
+  handlers:
+          - name: "restarting haproxy"
+            service:
+                    name: "haproxy"
+                    state: restarted
+
+
